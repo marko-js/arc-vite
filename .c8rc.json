@@ -1,0 +1,7 @@
+{
+  "all": true,
+  "excludeAfterRemap": true,
+  "reporter": ["text-summary", "lcov"],
+  "include": ["src/**/*.ts"],
+  "parserPlugins": ["objectRestSpread", "typescript"]
+}

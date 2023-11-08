@@ -1,0 +1,12 @@
+__snapshots__
+.cache
+.nvm
+.vscode
+*actual*
+*expected*
+CHANGELOG.md
+coverage
+dist
+node_modules
+package-lock.json
+package.json

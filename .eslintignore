@@ -1,0 +1,9 @@
+__snapshots__
+.cache
+.nvm
+.vscode
+*actual*
+*expected*
+coverage
+dist
+node_modules

@@ -1,0 +1,19 @@
+{
+  "include": ["src/**/*", "src/tests"],
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "incremental": true,
+    "isolatedModules": true,
+    "lib": ["dom", "ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "stripInternal": true,
+    "target": "ESNext",
+    "verbatimModuleSyntax": true
+  }
+}

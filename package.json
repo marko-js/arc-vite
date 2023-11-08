@@ -1,0 +1,78 @@
+{
+  "name": "arc-vite",
+  "version": "1.0.0",
+  "description": "Declaratively bundle and execute code specific to your users ARC and Vite.",
+  "keywords": [
+    "ARC",
+    "arc-server",
+    "vite"
+  ],
+  "homepage": "https://github.com/marko-js/arc-vite",
+  "bugs": "https://github.com/marko-js/arc-vite/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marko-js/arc-vite"
+  },
+  "license": "MIT",
+  "author": "Dylan Piercey <dpiercey@ebay.com>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "!**/tests",
+    "!**/*.tsbuildinfo"
+  ],
+  "scripts": {
+    "@ci:test": "c8 npm test",
+    "build": "tsx build.ts && tsc --build",
+    "change": "changeset add",
+    "clean": "rm -rf .cache coverage dist node_modules/.cache",
+    "format": "eslint -f unix --fix .; prettier . --write --log-level=warn; sort-package-json --quiet",
+    "lint": "npm run build && eslint -f unix && prettier . --check --log-level=warn && sort-package-json --quiet --check",
+    "prepare": "husky install",
+    "release": "npm run build && changeset publish",
+    "test": "tsx --test-reporter=spec --test ./src/tests/*.test.ts",
+    "version": "changeset version && npm i --package-lock-only"
+  },
+  "dependencies": {
+    "arc-resolver": "^3.0.0",
+    "domelementtype": "^2.3.0",
+    "domhandler": "^5.0.3",
+    "htmlparser2": "^9.0.0"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.4.8",
+    "@changesets/cli": "^2.26.2",
+    "@marko/compiler": "^5.33.5",
+    "@playwright/test": "^1.39.0",
+    "@types/estree": "^1.0.5",
+    "@types/node": "^20.9.0",
+    "@types/serve-handler": "^6.1.4",
+    "@typescript-eslint/eslint-plugin": "^6.10.0",
+    "@typescript-eslint/parser": "^6.10.0",
+    "c8": "^8.0.1",
+    "eslint": "^8.53.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.0.2",
+    "playwright": "^1.39.0",
+    "prettier": "^3.0.3",
+    "serve-handler": "^6.1.5",
+    "sort-package-json": "^2.6.0",
+    "tsx": "^4.1.0",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
+  },
+  "peerDependencies": {
+    "arc-server": "^3.0.2",
+    "vite": "4 - 5"
+  }
+}

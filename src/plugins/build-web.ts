@@ -424,12 +424,16 @@ export function pluginBuildWeb({
           const defaultFlaggedAssets = flaggedAssetsForEntry
             .sort(compareFlaggedObject)
             .pop()!;
+          let matchCodeSep = "";
+
           manifestCode += `case ${JSON.stringify(entryName)}:return `;
           for (const { flags, manifest } of flaggedAssetsForEntry) {
             manifestCode +=
+              matchCodeSep +
               flags.map((flag) => `f.${flag}`).join("&&") +
               "?" +
               JSON.stringify(manifest);
+            matchCodeSep = ":";
           }
 
           manifestCode += `:${JSON.stringify(defaultFlaggedAssets.manifest)}`;

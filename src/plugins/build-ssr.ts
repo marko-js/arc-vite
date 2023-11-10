@@ -136,6 +136,7 @@ function partsToString(parts, base, injectAttrs) {
 
             let code = "";
             let matchCode = "";
+            let matchCodeSep = "";
             let i = 0;
 
             for (const { flags, value } of adaptiveMatches.alternates) {
@@ -145,9 +146,12 @@ function partsToString(parts, base, injectAttrs) {
               )};\n`;
 
               matchCode +=
+                matchCodeSep +
                 flags.map((flag) => `f.${flag}`).join("&&") +
                 "?" +
                 adaptedImportId;
+
+              matchCodeSep = ":";
             }
 
             const defaultId = `_${indexToId(i)}`;

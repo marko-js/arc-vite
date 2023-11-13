@@ -13,12 +13,13 @@ import {
   generateDocManifest,
   generateInputDoc,
 } from "../utils/manifest";
+import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 
 const arcPrefix = "\0arc-";
 const arcJsSuffix = ".mjs";
 const arcProxyPrefix = `${arcPrefix}proxy:`;
 const arcInitPrefix = `${arcPrefix}init:`;
-const arcHTMLChunkReg = /([^/\\]+?)\.arc(?:\.(.+))?\.html$/;
+const arcHTMLChunkReg = /(.+)\.arc(?:\.(.+))?\.html$/;
 
 export function pluginBuildWeb({
   runtimeId,
@@ -43,6 +44,9 @@ export function pluginBuildWeb({
       name: "arc-vite:build-web",
       enforce: "pre",
       apply,
+      config(config) {
+        ensureArcPluginIsFirst(config.plugins!);
+      },
       configResolved(config) {
         basePath = config.base;
       },
@@ -196,9 +200,7 @@ export function pluginBuildWeb({
               importer,
               resolvedAdaptiveImports,
             ] of adaptiveImporters) {
-              const info =
-                this.getModuleInfo(importer) ||
-                (await this.load({ id: importer }));
+              const info = await this.load({ id: importer });
 
               for (const child of (info.ast as unknown as estree.Program)
                 .body) {
@@ -275,7 +277,7 @@ export function pluginBuildWeb({
 
         if (isArcProxyId(id)) {
           id = decodeArcProxyId(id);
-          const info = this.getModuleInfo(id);
+          const info = await this.load({ id });
           if (info) {
             let code = "";
             let syntheticNamedExports: boolean | string = false;
@@ -439,7 +441,7 @@ export function pluginBuildWeb({
           manifestCode += `:${JSON.stringify(defaultFlaggedAssets.manifest)}`;
         }
 
-        manifestCode += `}return {"head": ["<script>window.${runtimeId}_d?.();window.${runtimeId}_d = true;</script>"]}};\n`;
+        manifestCode += `}return {"head": ["<script>console.error('Unable to load adaptive arc files, unknown entry was provided when asking for assets.')</script>"]}};\n`;
 
         await Promise.all(
           serverEntryFiles.map((file) => fs.appendFile(file, manifestCode)),

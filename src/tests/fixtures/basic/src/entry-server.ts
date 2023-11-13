@@ -1,8 +1,14 @@
+import url from "url";
+import path from "path";
+import { promises as fs } from "fs";
 import type { IncomingMessage } from "http";
 import { getAssets, withFlags } from "arc-server";
 import renderApp from "./entry-web";
 
-export function render(html: string, req: IncomingMessage) {
+const dirname = path.join(url.fileURLToPath(import.meta.url), "..");
+const html = await fs.readFile(path.join(dirname, "../index.html"), "utf-8");
+
+export function render(req: IncomingMessage) {
   const url = new URL(req.url!, `http://${req.headers.host}`);
   if (url.pathname !== "/") return;
 

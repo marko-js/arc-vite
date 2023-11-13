@@ -36,8 +36,8 @@ export function getInternalPluginOptions(
       FLAGS === undefined
         ? undefined
         : FLAGS === ""
-        ? ([] as unknown as FlagSet)
-        : normalizeFlagSet(FLAGS.split(".")),
+          ? ([] as unknown as FlagSet)
+          : normalizeFlagSet(FLAGS.split(".")),
     flagSets:
       "flags" in options
         ? createFlagSets(options.flags)

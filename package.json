@@ -1,6 +1,6 @@
 {
   "name": "arc-vite",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Declaratively bundle and execute code specific to your users ARC and Vite.",
   "keywords": [
     "ARC",

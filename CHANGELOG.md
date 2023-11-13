@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Patch Changes
+
+- [#3](https://github.com/marko-js/arc-vite/pull/3) [`1220c98`](https://github.com/marko-js/arc-vite/commit/1220c98ca71d8bc941ca7cce42aa291f7c5a33f3) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Ensure arc plugin always runs first.
+
 ## 1.0.1
 
 ### Patch Changes

@@ -6,6 +6,7 @@ import { indexToId } from "../utils/index-to-id";
 import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
 import { isCssFile } from "../utils/is-css-file";
 import { toPosix } from "../utils/to-posix";
+import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 
 const virtualArcServerModuleId = "\0arc-server-virtual";
 const arcPrefix = "\0arc-";
@@ -33,6 +34,9 @@ export function pluginBuildSSR({
     },
     apply(config, { command }) {
       return command === "build" && !!config.build?.ssr;
+    },
+    config(config) {
+      ensureArcPluginIsFirst(config.plugins!);
     },
     configResolved(config) {
       root = config.root;
@@ -64,9 +68,6 @@ export function pluginBuildSSR({
             const matches = getMatches(id, flagSets);
             if (matches) {
               adaptiveMatchesForId.set(id, matches);
-              if (!this.getModuleInfo(id)?.ast) {
-                await this.load(resolved);
-              }
               return {
                 id: encodeArcProxyId(id),
               };
@@ -118,7 +119,7 @@ function partsToString(parts, base, injectAttrs) {
         id = decodeArcProxyId(id);
         const adaptiveMatches = adaptiveMatchesForId.get(id);
         if (adaptiveMatches) {
-          const info = this.getModuleInfo(id);
+          const info = await this.load({ id });
           if (info) {
             if (isCssFile(id)) {
               let code = "";

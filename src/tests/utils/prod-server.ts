@@ -1,14 +1,13 @@
 import path from "node:path";
 import http, { type IncomingMessage } from "node:http";
 import events from "node:events";
-import { promises as fs } from "node:fs";
 import * as vite from "vite";
 import serve from "serve-handler";
 
 export async function createProdServer(fixtureDir: string) {
-  const { default: getConfig } = (await import(`${fixtureDir}/config.ts`)) as {
-    default: () => vite.UserConfig;
-  };
+  const getConfig: () => vite.UserConfig = (
+    await import(`${fixtureDir}/config.ts`)
+  ).default;
   const dist = path.join(fixtureDir, "dist");
   const config = getConfig();
 
@@ -32,15 +31,14 @@ export async function createProdServer(fixtureDir: string) {
   );
 
   const { render } = (await import(path.join(dist, "entry-server.js"))) as {
-    render(html: string, req: IncomingMessage): string;
+    render(req: IncomingMessage): string | Promise<string>;
   };
-  const html = await fs.readFile(path.join(dist, "index.html"), "utf8");
 
   return {
     async listen(port: number) {
       const server = http
-        .createServer((req, res) => {
-          const result = render(html, req);
+        .createServer(async (req, res) => {
+          const result = (await render(req))?.toString();
           if (result) {
             res.statusCode = 200;
             res.end(result);

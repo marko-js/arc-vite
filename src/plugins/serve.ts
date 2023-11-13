@@ -4,6 +4,7 @@ import type { Plugin } from "vite";
 import { type InternalPluginOptions } from "../utils/options";
 import { getMatches } from "../utils/matches";
 import { type FlagSet, hasFlags } from "../utils/flags";
+import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 
 // TODO: support forced flagset for build plugins
 
@@ -28,13 +29,14 @@ export function pluginServe({
 
       if (!flagSet) return;
 
+      ensureArcPluginIsFirst(config.plugins!);
       config.cacheDir = path.resolve(
         `node_modules/.vite/arc/${flagSet.join(".")}`,
       );
       config.optimizeDeps ??= {};
       config.optimizeDeps.esbuildOptions ??= {};
       config.optimizeDeps.esbuildOptions.plugins ??= [];
-      config.optimizeDeps.esbuildOptions.plugins.push({
+      config.optimizeDeps.esbuildOptions.plugins.unshift({
         name: "arc-vite:serve:esbuild",
         setup(build) {
           const arcProxyPrefix = "arc-proxy:";

@@ -1,7 +1,7 @@
-import url from "url";
-import path from "path";
 import { promises as fs } from "fs";
 import type { IncomingMessage } from "http";
+import path from "path";
+import url from "url";
 import { getAssets, withFlags } from "arc-server";
 import renderApp from "./entry-web";
 

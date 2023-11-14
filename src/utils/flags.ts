@@ -72,22 +72,24 @@ export function compareFlagSets(a: FlagSet, b: FlagSet) {
 
 export function normalizeFlagSets(rawFlagSets: string[][]): FlagSet[] {
   if (!rawFlagSets.length) return rawFlagSets as FlagSet[];
-
-  const sortedFlagSets = rawFlagSets
-    .map(normalizeFlagSet)
-    .sort(compareFlagSets);
-  let prev = [] as unknown as FlagSet;
+  const sortedFlagSets = rawFlagSets.map(normalizeFlagSet).sort();
+  let prev = sortedFlagSets[0];
   const uniqueFlagSets = [prev];
-  for (let i = 0; i < sortedFlagSets.length; i++) {
+  for (let i = 1; i < sortedFlagSets.length; i++) {
     if (compareFlagSets(prev, sortedFlagSets[i]) !== 0) {
       uniqueFlagSets.push((prev = sortedFlagSets[i]));
     }
   }
+
+  if (prev.length !== 0) {
+    uniqueFlagSets.push([] as unknown as FlagSet);
+  }
+
   return uniqueFlagSets;
 }
 
 export function normalizeFlagSet(flags: string[]): FlagSet {
-  return [...new Set(flags)].sort(compareFlags) as FlagSet;
+  return [...new Set(flags)].sort() as FlagSet;
 }
 
 export function compareFlaggedObject(
@@ -98,5 +100,5 @@ export function compareFlaggedObject(
 }
 
 function compareFlags(a: string, b: string) {
-  return a.localeCompare(b);
+  return a > b ? 1 : a < b ? -1 : 0;
 }

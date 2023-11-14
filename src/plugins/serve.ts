@@ -1,10 +1,12 @@
+import fs from "fs";
+import { createRequire, syncBuiltinESMExports } from "module";
 import path from "path";
-import { createRequire } from "module";
 import type { Plugin } from "vite";
-import { type InternalPluginOptions } from "../utils/options";
-import { getMatches } from "../utils/matches";
-import { type FlagSet, hasFlags } from "../utils/flags";
+import { patchFS } from "../utils/arc-fs";
 import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
+import { type FlagSet, hasFlags } from "../utils/flags";
+import { getMatches } from "../utils/matches";
+import { type InternalPluginOptions } from "../utils/options";
 
 // TODO: support forced flagset for build plugins
 
@@ -13,6 +15,7 @@ export function pluginServe({
   forceFlagSet,
 }: InternalPluginOptions): Plugin {
   const flagSet = forceFlagSet?.length ? forceFlagSet : undefined;
+  let restoreFS: ReturnType<typeof patchFS> | undefined;
   return {
     name: "arc-vite:serve",
     enforce: "pre",
@@ -29,6 +32,8 @@ export function pluginServe({
 
       if (!flagSet) return;
 
+      syncBuiltinESMExports();
+      restoreFS = patchFS(flagSet, fs);
       ensureArcPluginIsFirst(config.plugins!);
       config.cacheDir = path.resolve(
         `node_modules/.vite/arc/${flagSet.join(".")}`,
@@ -84,6 +89,13 @@ export function pluginServe({
       }
 
       return null;
+    },
+    buildEnd() {
+      if (restoreFS) {
+        restoreFS();
+        syncBuiltinESMExports();
+        restoreFS = undefined;
+      }
     },
   };
 }

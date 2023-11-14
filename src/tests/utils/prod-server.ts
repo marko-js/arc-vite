@@ -1,8 +1,8 @@
-import path from "node:path";
-import http, { type IncomingMessage } from "node:http";
 import events from "node:events";
-import * as vite from "vite";
+import http, { type IncomingMessage } from "node:http";
+import path from "node:path";
 import serve from "serve-handler";
+import * as vite from "vite";
 
 export async function createProdServer(fixtureDir: string) {
   const getConfig: () => vite.UserConfig = (

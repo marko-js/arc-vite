@@ -9,10 +9,10 @@ import { createProdServer } from "./utils/prod-server";
 
 const fixture = path.join(
   url.fileURLToPath(import.meta.url),
-  "../fixtures/basic",
+  "../fixtures/marko-scan-files",
 );
 
-t.test("basic", async (t) => {
+t.test("marko-scan-files", async (t) => {
   t.beforeEach(() => {
     delete process.env.FLAGS;
   });
@@ -68,6 +68,7 @@ t.test("basic", async (t) => {
 
     await t.test("FLAGS=mobile", async (t) => {
       await page.goto("/?mobile");
+      await page.pause();
       await t.test("has mobile content", async () => {
         await assertHasMobileContent(page);
       });
@@ -76,22 +77,13 @@ t.test("basic", async (t) => {
 });
 
 async function assertHasDesktopContent(page: Page) {
-  await expect(page.locator("body")).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
-  );
-  const heading = page.getByText("a, b");
-  await expect(heading).toBeAttached();
-  await expect(heading).toHaveCSS("color", "rgb(0, 0, 0)");
+  await expect(page.getByRole("heading")).toContainText(/got: 1/);
 }
 
 async function assertHasMobileContent(page: Page) {
-  await page.pause();
-  await expect(page.locator("body")).toHaveCSS(
-    "background-color",
-    "rgb(0, 255, 255)",
-  );
-  const heading = page.getByText("a[mobile], b[mobile]");
-  await expect(heading).toBeAttached();
-  await expect(heading).toHaveCSS("color", "rgb(0, 128, 0)");
+  await expect(page.getByRole("heading")).toContainText(/got: 0/);
+  await page
+    .getByRole("button", { name: "Increment", disabled: false })
+    .click();
+  await expect(page.getByRole("heading")).toContainText(/got: 1/);
 }

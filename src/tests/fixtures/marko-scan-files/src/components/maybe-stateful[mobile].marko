@@ -1,0 +1,21 @@
+export interface Input {
+  renderBody: Marko.Body<[number]>
+}
+
+class {
+  declare state: { mounted: boolean; count: number };
+  onCreate() {
+    this.state = { mounted: false, count: 0 };
+  }
+  onMount() {
+    this.state.mounted = true;
+  }
+  handleClick() {
+    this.state.count++;
+  }
+}
+
+<${input.renderBody}(state.count)/>
+<button onClick("handleClick") disabled=!state.mounted>
+  Increment
+</button>

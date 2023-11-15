@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import Resolver from "arc-resolver";
 import {
@@ -9,10 +10,10 @@ import {
 
 export type Matches = { default: string; alternates: [Match, ...Match[]] };
 export type Match = { flags: FlagSet; value: string };
+export const resolver = new Resolver(fs);
 
 type RawMatch = { flags: string[]; value: string };
 
-const resolver = new Resolver();
 const hasQuery = /\?.*$/;
 export function getMatches(
   id: string,

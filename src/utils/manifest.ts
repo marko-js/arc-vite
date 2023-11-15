@@ -1,6 +1,6 @@
-import { Parser } from "htmlparser2";
 import { ElementType } from "domelementtype";
 import { Comment, DomHandler, Element, Node, Text } from "domhandler";
+import { Parser } from "htmlparser2";
 
 type Serialized = ReturnType<typeof serialize>;
 export type DocManifest = {

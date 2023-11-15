@@ -1,6 +1,7 @@
 import events from "node:events";
 import type { IncomingMessage } from "node:http";
 import * as vite from "vite";
+import { getPort } from "./get-port";
 
 export async function createDevServer(fixtureDir: string) {
   const getConfig: () => vite.UserConfig = (
@@ -13,6 +14,7 @@ export async function createDevServer(fixtureDir: string) {
       configFile: false,
       server: {
         middlewareMode: true,
+        hmr: { port: await getPort() }, // avoid port conflict by picking a random hmr port
       },
     }),
   );

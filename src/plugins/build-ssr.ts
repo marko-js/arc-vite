@@ -1,16 +1,22 @@
 import path from "path";
 import type { Plugin } from "vite";
-import { type InternalPluginOptions } from "../utils/options";
-import { type Matches, clearCache, getMatches } from "../utils/matches";
-import { indexToId } from "../utils/index-to-id";
-import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
-import { isCssFile } from "../utils/is-css-file";
-import { toPosix } from "../utils/to-posix";
+import { getArcFS } from "../utils/arc-fs";
 import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
+import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
+import { indexToId } from "../utils/index-to-id";
+import { isCssFile } from "../utils/is-css-file";
+import { type Matches, clearCache } from "../utils/matches";
+import { type InternalPluginOptions } from "../utils/options";
+import { toPosix } from "../utils/to-posix";
+import {
+  decodeArcVirtualMatch,
+  getVirtualMatches,
+  isArcVirtualMatch,
+} from "../utils/virtual-matches";
 
 const virtualArcServerModuleId = "\0arc-server-virtual";
 const arcPrefix = "\0arc-";
-const arcSuffix = ".js";
+const arcSuffix = ".mjs";
 const arcProxyPrefix = `${arcPrefix}proxy:`;
 
 // TODO: with some tweaks this plugin might work in a test env.
@@ -43,18 +49,28 @@ export function pluginBuildSSR({
     },
     async resolveId(source, importer, options) {
       if (importer) {
-        if (source === "arc-server") {
-          return importer === virtualArcServerModuleId
-            ? this.resolve(source, undefined, options)
-            : { id: virtualArcServerModuleId };
+        switch (source) {
+          case "arc-server":
+            return importer === virtualArcServerModuleId
+              ? this.resolve(source, undefined, options)
+              : { id: virtualArcServerModuleId };
+          case "arc-server/proxy":
+            return null;
         }
 
-        if (isArcProxyId(source)) {
+        if (isArcId(source)) {
           return source;
         }
 
-        if (isArcProxyId(importer)) {
-          if (source === "arc-server/proxy") return null;
+        if (isArcId(importer)) {
+          if (isArcVirtualMatch(importer)) {
+            return this.resolve(
+              source,
+              this.getModuleInfo(importer)?.meta.arcSourceId,
+              options,
+            );
+          }
+
           return source;
         }
 
@@ -62,16 +78,12 @@ export function pluginBuildSSR({
           ...options,
           skipSelf: true,
         });
-        if (resolved) {
-          const { id } = resolved;
-          if (path.isAbsolute(id)) {
-            const matches = getMatches(id, flagSets);
-            if (matches) {
-              adaptiveMatchesForId.set(id, matches);
-              return {
-                id: encodeArcProxyId(id),
-              };
-            }
+        if (resolved && !resolved.external) {
+          const matches = await getVirtualMatches(this, flagSets, resolved);
+          if (matches) {
+            const { id } = resolved;
+            adaptiveMatchesForId.set(id, matches);
+            return { id: encodeArcProxyId(id) };
           }
         }
 
@@ -115,7 +127,7 @@ function partsToString(parts, base, injectAttrs) {
         };
       }
 
-      if (isArcProxyId(arcProxyPrefix)) {
+      if (isArcProxyId(id)) {
         id = decodeArcProxyId(id);
         const adaptiveMatches = adaptiveMatchesForId.get(id);
         if (adaptiveMatches) {
@@ -178,7 +190,6 @@ function partsToString(parts, base, injectAttrs) {
                     code += "export default _.default;\n";
                   }
                 } else {
-                  syntheticNamedExports = true;
                   code += `export default ${proxyCode}.default;\n`;
                 }
               }
@@ -193,6 +204,18 @@ function partsToString(parts, base, injectAttrs) {
             };
           }
         }
+      } else if (isArcVirtualMatch(id)) {
+        const [arcSourceId, flagSet] = decodeArcVirtualMatch(id);
+        const { meta, moduleSideEffects, syntheticNamedExports } =
+          this.getModuleInfo(arcSourceId)!;
+        const code = meta.arcSourceCode as string;
+        const arcFS = getArcFS(flagSet);
+        return {
+          code,
+          moduleSideEffects,
+          syntheticNamedExports,
+          meta: { ...meta, arcSourceId, arcFS },
+        };
       }
 
       return null;
@@ -232,6 +255,10 @@ function partsToString(parts, base, injectAttrs) {
       store.write({ serverEntryFiles });
     },
   };
+}
+
+function isArcId(id: string) {
+  return id.startsWith(arcPrefix);
 }
 
 function isArcProxyId(id: string) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- [#5](https://github.com/marko-js/arc-vite/pull/5) [`2625f47`](https://github.com/marko-js/arc-vite/commit/2625f47556f8433f95a01a908cd482dbc1229e40) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Add support for other Vite plugins registering additional files to check when determining if a module is adaptive.
+
 ## 1.0.2
 
 ### Patch Changes

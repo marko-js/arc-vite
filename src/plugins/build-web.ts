@@ -91,6 +91,11 @@ export function pluginBuildWeb({
             const matches = await getVirtualMatches(this, flagSets, resolved);
             if (matches) {
               const { id } = resolved;
+
+              if (!this.getModuleInfo(id)?.ast) {
+                await this.load(resolved);
+              }
+
               adaptiveMatchesForId.set(id, matches);
 
               const adaptiveImportsForImporter =
@@ -212,10 +217,11 @@ export function pluginBuildWeb({
               importer,
               resolvedAdaptiveImports,
             ] of adaptiveImporters) {
-              const info = await this.load({ id: importer });
+              const ast = (this.getModuleInfo(importer)?.ast ||
+                (await this.load({ id: importer }))
+                  .ast) as unknown as estree.Program;
 
-              for (const child of (info.ast as unknown as estree.Program)
-                .body) {
+              for (const child of ast.body) {
                 if (child.type === "ImportDeclaration") {
                   const id = resolvedAdaptiveImports.get(
                     child.source.value as string,
@@ -289,7 +295,12 @@ export function pluginBuildWeb({
 
         if (isArcProxyId(id)) {
           id = decodeArcProxyId(id);
-          const info = await this.load({ id });
+
+          if (isCssFile(id)) {
+            return { code: "" };
+          }
+
+          const info = this.getModuleInfo(id);
           if (info) {
             let code = "";
             let syntheticNamedExports: boolean | string = false;

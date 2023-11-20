@@ -82,6 +82,10 @@ export function pluginBuildSSR({
           const matches = await getVirtualMatches(this, flagSets, resolved);
           if (matches) {
             const { id } = resolved;
+            if (!this.getModuleInfo(id)?.ast) {
+              await this.load(resolved);
+            }
+
             adaptiveMatchesForId.set(id, matches);
             return { id: encodeArcProxyId(id) };
           }
@@ -131,22 +135,22 @@ function partsToString(parts, base, injectAttrs) {
         id = decodeArcProxyId(id);
         const adaptiveMatches = adaptiveMatchesForId.get(id);
         if (adaptiveMatches) {
-          const info = await this.load({ id });
-          if (info) {
-            if (isCssFile(id)) {
-              let code = "";
-              for (const { value } of adaptiveMatches.alternates) {
-                code += `import ${JSON.stringify(value)};\n`;
-              }
-
-              code += `import ${JSON.stringify(adaptiveMatches.default)};\n`;
-
-              return {
-                code,
-                moduleSideEffects: "no-treeshake",
-              };
+          if (isCssFile(id)) {
+            let code = "";
+            for (const { value } of adaptiveMatches.alternates) {
+              code += `import ${JSON.stringify(value)};\n`;
             }
 
+            code += `import ${JSON.stringify(adaptiveMatches.default)};\n`;
+
+            return {
+              code,
+              moduleSideEffects: "no-treeshake",
+            };
+          }
+
+          const info = this.getModuleInfo(id);
+          if (info) {
             let code = "";
             let matchCode = "";
             let matchCodeSep = "";

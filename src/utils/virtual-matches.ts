@@ -6,6 +6,8 @@ import { getMatches, type Match } from "./matches";
 
 const arcPrefix = "\0arc-";
 const arcVirtualMatchPrefix = `${arcPrefix}match:`;
+const isBuiltinModuleType =
+  /\.(?:[mc]?[tj]s|json|css|less|sass|scss|styl|stylus|pcss|postcss|sss)(\?|$)/;
 
 export async function getVirtualMatches(
   ctx: Rollup.PluginContext,
@@ -17,6 +19,8 @@ export async function getVirtualMatches(
     const matches = getMatches(id, flagSets);
     if (matches) return matches;
   }
+
+  if (isBuiltinModuleType.test(id)) return;
 
   const { meta } = await ctx.load(resolved);
   if (Array.isArray(meta.arcScanIds)) {

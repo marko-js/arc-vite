@@ -5,6 +5,7 @@ import type { Plugin } from "vite";
 import { pluginBuildSSR } from "./plugins/build-ssr";
 import { pluginBuildWeb } from "./plugins/build-web";
 import { pluginServe } from "./plugins/serve";
+import type { FlagSet } from "./utils/flags";
 import { type Options, getInternalPluginOptions } from "./utils/options";
 
 export { createFlagSets, hasFlags } from "./utils/flags";
@@ -35,6 +36,7 @@ declare module "rollup" {
     arcSourceId?: string;
     arcSourceCode?: string;
     arcScanIds?: string[];
+    arcFlagSet?: FlagSet;
     arcFS?: typeof import("fs");
   }
 }

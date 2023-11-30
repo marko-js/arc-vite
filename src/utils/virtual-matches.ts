@@ -22,7 +22,9 @@ export async function getVirtualMatches(
 
   if (isBuiltinModuleType.test(id)) return;
 
-  const { meta } = await ctx.load(resolved);
+  let info = ctx.getModuleInfo(id);
+  if (!info?.ast) info = await ctx.load(resolved);
+  const { meta } = info;
   if (Array.isArray(meta.arcScanIds)) {
     if (typeof meta.arcSourceCode !== "string") {
       ctx.error(

@@ -209,16 +209,21 @@ function partsToString(parts, base, injectAttrs) {
           }
         }
       } else if (isArcVirtualMatch(id)) {
-        const [arcSourceId, flagSet] = decodeArcVirtualMatch(id);
+        const [arcSourceId, arcFlagSet] = decodeArcVirtualMatch(id);
         const { meta, moduleSideEffects, syntheticNamedExports } =
           this.getModuleInfo(arcSourceId)!;
         const code = meta.arcSourceCode as string;
-        const arcFS = getArcFS(flagSet);
+        const arcFS = getArcFS(arcFlagSet);
         return {
           code,
           moduleSideEffects,
           syntheticNamedExports,
-          meta: { ...meta, arcSourceId, arcFS },
+          meta: {
+            ...meta,
+            arcSourceId,
+            arcFlagSet,
+            arcFS,
+          },
         };
       }
 

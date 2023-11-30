@@ -10,11 +10,13 @@ import { indexToId } from "../utils/index-to-id";
 import { isCssFile } from "../utils/is-css-file";
 import {
   type DocManifest,
-  generateDocManifest,
-  generateInputDoc,
+  generatManifest,
+  generateHTML,
 } from "../utils/manifest";
 import { type Matches } from "../utils/matches";
 import { type InternalPluginOptions } from "../utils/options";
+import { stripEntryScript } from "../utils/strip-entry-script";
+import { toPosix } from "../utils/to-posix";
 import {
   decodeArcVirtualMatch,
   getVirtualMatches,
@@ -23,10 +25,10 @@ import {
 
 const arcPrefix = "\0arc-";
 const arcJsSuffix = ".mjs";
-const arcProxyPrefix = `${arcPrefix}proxy:`;
 const arcInitPrefix = `${arcPrefix}init:`;
-const arcHTMLChunkReg = /(.+)\.arc(?:\.(.+))?\.html$/;
-
+const arcProxyPrefix = `${arcPrefix}proxy:`;
+const emptyScriptReg = /^[\s;]+$/;
+const arcChunkFileNameReg = /(.+)\.arc(?:\.(.+))?\.html$/;
 export function pluginBuildWeb({
   runtimeId,
   flagSets,
@@ -36,9 +38,12 @@ export function pluginBuildWeb({
   const adaptiveImporters = new Map<string, Map<string, string>>();
   const adaptiveMatchesForId = new Map<string, Matches>();
   const bindingsByAdaptiveId = new Map<string, Set<string> | true>();
-  const resolvedAdaptiveImportsForChunk = new Map<
+  const metaForAdaptiveChunk = new Map<
     string,
-    Map<string, string>
+    {
+      entryId: string;
+      adaptiveImports: Map<string, string>;
+    }
   >();
   const apply: Plugin["apply"] = (config, { command }) =>
     command === "build" && !config.build?.ssr;
@@ -62,7 +67,7 @@ export function pluginBuildWeb({
         adaptiveImporters.clear();
         adaptiveMatchesForId.clear();
         bindingsByAdaptiveId.clear();
-        resolvedAdaptiveImportsForChunk.clear();
+        metaForAdaptiveChunk.clear();
       },
       async resolveId(source, importer, options) {
         if (importer) {
@@ -111,9 +116,9 @@ export function pluginBuildWeb({
           }
 
           return resolved;
-        } else if (resolvedAdaptiveImportsForChunk.has(source)) {
+        } else if (metaForAdaptiveChunk.has(source)) {
           return source;
-        } else if (options.isEntry) {
+        } else if (options.isEntry && !isArcId(source)) {
           const resolved = await this.resolve(source, importer, {
             ...options,
             skipSelf: true,
@@ -205,10 +210,10 @@ export function pluginBuildWeb({
                   flagSet.length ? `.${flagSet.join(".")}` : ""
                 }.html`;
 
-                resolvedAdaptiveImportsForChunk.set(
-                  id,
-                  resolvedAdaptiveImports,
-                );
+                metaForAdaptiveChunk.set(id, {
+                  entryId: resolved.id,
+                  adaptiveImports: resolvedAdaptiveImports,
+                });
                 return id;
               }),
             );
@@ -273,27 +278,25 @@ export function pluginBuildWeb({
       },
 
       async load(id) {
-        const resolvedAdaptiveImports = resolvedAdaptiveImportsForChunk.get(id);
-        if (resolvedAdaptiveImports) {
-          let code = "";
+        const adaptiveChunkMeta = metaForAdaptiveChunk.get(id);
 
-          for (const [adaptiveImport, adaptedImport] of [
-            ...resolvedAdaptiveImports,
-          ].reverse()) {
+        if (adaptiveChunkMeta) {
+          let code = "";
+          const adaptiveImports = [...adaptiveChunkMeta.adaptiveImports];
+          for (let i = adaptiveImports.length; i--; ) {
+            const [adaptiveImport, adaptedImport] = adaptiveImports[i];
             code += `import ${JSON.stringify(
               encodeArcInitId(adaptiveImport, adaptedImport),
             )};\n`;
           }
 
-          code = generateInputDoc(code);
+          code = generateHTML(code);
 
           return {
             code,
-            moduleSideEffects: false,
+            moduleSideEffects: "no-treeshake",
           };
-        }
-
-        if (isArcProxyId(id)) {
+        } else if (isArcProxyId(id)) {
           id = decodeArcProxyId(id);
 
           if (isCssFile(id)) {
@@ -360,47 +363,79 @@ export function pluginBuildWeb({
             moduleSideEffects: "no-treeshake",
           };
         } else if (isArcVirtualMatch(id)) {
-          const [arcSourceId, flagSet] = decodeArcVirtualMatch(id);
+          const [arcSourceId, arcFlagSet] = decodeArcVirtualMatch(id);
           const { meta, moduleSideEffects, syntheticNamedExports } =
             this.getModuleInfo(arcSourceId)!;
           const code = meta.arcSourceCode as string;
-          const arcFS = getArcFS(flagSet);
+          const arcFS = getArcFS(arcFlagSet);
           return {
             code,
             moduleSideEffects,
             syntheticNamedExports,
-            meta: { ...meta, arcSourceId, arcFS },
+            meta: {
+              ...meta,
+              arcSourceId,
+              arcFlagSet,
+              arcFS,
+            },
           };
         }
 
         return null;
       },
-
-      banner(chunk) {
-        if (chunk.isEntry) {
-          if (
-            chunk.facadeModuleId &&
-            arcHTMLChunkReg.test(chunk.facadeModuleId)
-          ) {
-            return `window.${runtimeId}={};`;
-          }
-
-          return `window.${runtimeId}_d || await new Promise(r => window.${runtimeId}_d = r);`;
+      transformIndexHtml(html, { chunk }) {
+        if (!chunk?.facadeModuleId) return;
+        if (arcChunkFileNameReg.test(chunk.facadeModuleId)) {
+          return [
+            {
+              injectTo: "head-prepend",
+              tag: "script",
+              children: `${runtimeId}={}`,
+            },
+          ];
         }
 
-        return "";
+        return stripEntryScript(basePath, chunk.fileName, html);
       },
-
-      footer(chunk) {
-        if (
-          chunk.isEntry &&
-          chunk.facadeModuleId &&
-          arcHTMLChunkReg.test(chunk.facadeModuleId)
-        ) {
-          return `window.${runtimeId}_d?.();\nwindow.${runtimeId}_d = true;`;
+      generateBundle(_, bundle) {
+        const facadeModuleIdToEntryName = new Map<string, string>();
+        for (const fileName in bundle) {
+          const chunk = bundle[fileName];
+          if (
+            chunk.type === "chunk" &&
+            chunk.isEntry &&
+            chunk.facadeModuleId &&
+            !arcChunkFileNameReg.test(chunk.facadeModuleId) &&
+            !emptyScriptReg.test(chunk.code)
+          ) {
+            facadeModuleIdToEntryName.set(chunk.facadeModuleId, chunk.fileName);
+          }
         }
 
-        return "";
+        for (const fileName in bundle) {
+          const chunk = bundle[fileName];
+          if (
+            chunk.type === "chunk" &&
+            chunk.isEntry &&
+            chunk.facadeModuleId &&
+            arcChunkFileNameReg.test(chunk.facadeModuleId)
+          ) {
+            const adaptiveChunkMeta = metaForAdaptiveChunk.get(
+              chunk.facadeModuleId,
+            );
+            if (adaptiveChunkMeta) {
+              const originalEntryName = facadeModuleIdToEntryName.get(
+                adaptiveChunkMeta.entryId,
+              );
+              if (originalEntryName) {
+                chunk.imports.push(originalEntryName);
+                chunk.code += `;import ${JSON.stringify(
+                  toRelativeImport(chunk.fileName, originalEntryName),
+                )}`;
+              }
+            }
+          }
+        }
       },
     },
     {
@@ -431,16 +466,13 @@ export function pluginBuildWeb({
         for (const fileName in bundle) {
           const chunk = bundle[fileName];
           if (chunk.type === "asset") {
-            const arcHTMLChunkMatch = arcHTMLChunkReg.exec(chunk.fileName);
+            const arcHTMLChunkMatch = arcChunkFileNameReg.exec(chunk.fileName);
             if (!arcHTMLChunkMatch) continue;
             delete bundle[fileName];
             const [, entryName, flagSetStr] = arcHTMLChunkMatch;
             const flaggedManifest = {
               flags: (flagSetStr ? flagSetStr.split(".") : []) as FlagSet,
-              manifest: await generateDocManifest(
-                basePath,
-                chunk.source.toString(),
-              ),
+              manifest: generatManifest(basePath, chunk.source.toString()),
             };
             const flaggedAssetsForEntry = flaggedManifestByEntry.get(entryName);
             if (flaggedAssetsForEntry) {
@@ -553,4 +585,12 @@ function decodeArcInitId(id: string) {
       ? relativeAdaptedImport
       : path.join(adaptiveImport, "..", relativeAdaptedImport);
   return [adaptiveImport, adaptedImport];
+}
+
+function toRelativeImport(from: string, to: string) {
+  const relative = path.relative(path.dirname(toPosix(from)), toPosix(to));
+  if (relative[0] !== ".") {
+    return `./${relative}`;
+  }
+  return relative;
 }

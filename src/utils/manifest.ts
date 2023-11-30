@@ -1,6 +1,5 @@
-import { ElementType } from "domelementtype";
-import { Comment, DomHandler, Element, Node, Text } from "domhandler";
-import { Parser } from "htmlparser2";
+import type { Comment, Node, Element, Text } from "domhandler";
+import { parseDocument, ElementType, DomUtils } from "htmlparser2";
 
 type Serialized = ReturnType<typeof serialize>;
 export type DocManifest = {
@@ -15,6 +14,7 @@ enum InjectType {
   PublicPath = 1,
 }
 
+const { isComment, isTag } = DomUtils;
 const markerComment = "ARC_VITE";
 const voidElements = new Set([
   "area",
@@ -33,55 +33,39 @@ const voidElements = new Set([
   "wbr",
 ]);
 
-export function generateDocManifest(
-  basePath: string,
-  rawHtml: string,
-): Promise<DocManifest> {
-  return new Promise((resolve, reject) => {
-    const parser = new Parser(
-      new DomHandler(function (err, dom) {
-        if (err) {
-          return reject(err);
+export function generatManifest(basePath: string, html: string): DocManifest {
+  const dom = parseDocument(html);
+  const headPrepend: Node[] = [];
+  const head: Node[] = [];
+  const bodyPrepend: Node[] = [];
+  const body: Node[] = [];
+
+  for (const node of dom.childNodes) {
+    if (isTag(node) && node.tagName === "html") {
+      for (const child of node.childNodes) {
+        if (isTag(child)) {
+          switch (child.tagName) {
+            case "head":
+              splitNodesByMarker(child.childNodes, headPrepend, head);
+              break;
+            case "body":
+              splitNodesByMarker(child.childNodes, bodyPrepend, body);
+              break;
+          }
         }
+      }
+    }
+  }
 
-        const htmlChildren = dom.find(isElement)!.childNodes;
-        const headPrepend: Node[] = [];
-        const head: Node[] = [];
-        const bodyPrepend: Node[] = [];
-        const body: Node[] = [];
-        splitNodesByMarker(
-          (
-            htmlChildren.find(
-              (node) => isElement(node) && node.tagName === "head",
-            ) as Element
-          ).childNodes,
-          headPrepend,
-          head,
-        );
-        splitNodesByMarker(
-          (
-            htmlChildren.find(
-              (node) => isElement(node) && node.tagName === "body",
-            ) as Element
-          ).childNodes,
-          bodyPrepend,
-          body,
-        );
-
-        resolve({
-          "head-prepend": serializeOrUndefined(basePath, headPrepend),
-          head: serializeOrUndefined(basePath, head),
-          "body-prepend": serializeOrUndefined(basePath, bodyPrepend),
-          body: serializeOrUndefined(basePath, body),
-        });
-      }),
-    );
-    parser.write(rawHtml);
-    parser.end();
-  });
+  return {
+    "head-prepend": serializeOrUndefined(basePath, headPrepend),
+    head: serializeOrUndefined(basePath, head),
+    "body-prepend": serializeOrUndefined(basePath, bodyPrepend),
+    body: serializeOrUndefined(basePath, body),
+  };
 }
 
-export function generateInputDoc(code: string) {
+export function generateHTML(code: string) {
   return `<!DOCTYPE html><html><head><!--${markerComment}--></head><body><!--${markerComment}--><script async type="module">${code}</script></body></html>`;
 }
 
@@ -192,7 +176,7 @@ function splitNodesByMarker(nodes: Node[], before: Node[], after: Node[]) {
   for (let i = 0; i < nodes.length; i++) {
     let node = nodes[i];
 
-    if ((node as Comment).data === markerComment) {
+    if (isComment(node) && node.data === markerComment) {
       i++;
       for (; i < nodes.length; i++) {
         node = nodes[i];
@@ -204,10 +188,6 @@ function splitNodesByMarker(nodes: Node[], before: Node[], after: Node[]) {
 
     before.push(node);
   }
-}
-
-function isElement(node: Node): node is Element {
-  return node.type === ElementType.Tag;
 }
 
 function stripBasePath(basePath: string, path: string) {

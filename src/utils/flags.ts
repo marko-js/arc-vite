@@ -62,8 +62,7 @@ export function compareFlagSets(a: FlagSet, b: FlagSet) {
   if (aLen === bLen) {
     for (let i = aLen; i--; ) {
       const compared = compareFlags(a[i], b[i]);
-      if (compared === 0) continue;
-      return compared;
+      if (compared !== 0) return compared;
     }
   }
 
@@ -71,8 +70,10 @@ export function compareFlagSets(a: FlagSet, b: FlagSet) {
 }
 
 export function normalizeFlagSets(rawFlagSets: string[][]): FlagSet[] {
-  if (!rawFlagSets.length) return rawFlagSets as FlagSet[];
-  const sortedFlagSets = rawFlagSets.map(normalizeFlagSet).sort();
+  if (!rawFlagSets.length) return [[]] as unknown as FlagSet[];
+  const sortedFlagSets = rawFlagSets
+    .map(normalizeFlagSet)
+    .sort(compareFlagSets);
   let prev = sortedFlagSets[0];
   const uniqueFlagSets = [prev];
   for (let i = 1; i < sortedFlagSets.length; i++) {

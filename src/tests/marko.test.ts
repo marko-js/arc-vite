@@ -86,7 +86,6 @@ async function assertHasDesktopContent(page: Page) {
 }
 
 async function assertHasMobileContent(page: Page) {
-  await page.pause();
   await expect(page.locator("body")).toHaveCSS(
     "background-color",
     "rgb(0, 255, 255)",

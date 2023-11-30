@@ -68,7 +68,6 @@ t.test("marko-scan-files", async (t) => {
 
     await t.test("FLAGS=mobile", async (t) => {
       await page.goto("/?mobile");
-      await page.pause();
       await t.test("has mobile content", async () => {
         await assertHasMobileContent(page);
       });

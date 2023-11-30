@@ -82,6 +82,10 @@ export function pluginBuildSSR({
           const matches = await getVirtualMatches(this, flagSets, resolved);
           if (matches) {
             const { id } = resolved;
+            if (!this.getModuleInfo(id)?.ast) {
+              await this.load(resolved);
+            }
+
             adaptiveMatchesForId.set(id, matches);
             return { id: encodeArcProxyId(id) };
           }
@@ -131,22 +135,22 @@ function partsToString(parts, base, injectAttrs) {
         id = decodeArcProxyId(id);
         const adaptiveMatches = adaptiveMatchesForId.get(id);
         if (adaptiveMatches) {
-          const info = await this.load({ id });
-          if (info) {
-            if (isCssFile(id)) {
-              let code = "";
-              for (const { value } of adaptiveMatches.alternates) {
-                code += `import ${JSON.stringify(value)};\n`;
-              }
-
-              code += `import ${JSON.stringify(adaptiveMatches.default)};\n`;
-
-              return {
-                code,
-                moduleSideEffects: "no-treeshake",
-              };
+          if (isCssFile(id)) {
+            let code = "";
+            for (const { value } of adaptiveMatches.alternates) {
+              code += `import ${JSON.stringify(value)};\n`;
             }
 
+            code += `import ${JSON.stringify(adaptiveMatches.default)};\n`;
+
+            return {
+              code,
+              moduleSideEffects: "no-treeshake",
+            };
+          }
+
+          const info = this.getModuleInfo(id);
+          if (info) {
             let code = "";
             let matchCode = "";
             let matchCodeSep = "";
@@ -205,16 +209,21 @@ function partsToString(parts, base, injectAttrs) {
           }
         }
       } else if (isArcVirtualMatch(id)) {
-        const [arcSourceId, flagSet] = decodeArcVirtualMatch(id);
+        const [arcSourceId, arcFlagSet] = decodeArcVirtualMatch(id);
         const { meta, moduleSideEffects, syntheticNamedExports } =
           this.getModuleInfo(arcSourceId)!;
         const code = meta.arcSourceCode as string;
-        const arcFS = getArcFS(flagSet);
+        const arcFS = getArcFS(arcFlagSet);
         return {
           code,
           moduleSideEffects,
           syntheticNamedExports,
-          meta: { ...meta, arcSourceId, arcFS },
+          meta: {
+            ...meta,
+            arcSourceId,
+            arcFlagSet,
+            arcFS,
+          },
         };
       }
 

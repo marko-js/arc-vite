@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+### Minor Changes
+
+- [#7](https://github.com/marko-js/arc-vite/pull/7) [`1472478`](https://github.com/marko-js/arc-vite/commit/14724786236fc0373eb13bc164eaa059b99a3f18) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Move away from top level await which has limited browser support.
+
+### Patch Changes
+
+- [#7](https://github.com/marko-js/arc-vite/pull/7) [`161b0c1`](https://github.com/marko-js/arc-vite/commit/161b0c14ea8dc1349a9b6461b29d424eee7ffb25) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Avoid using `this.load` unless the ast has not already been parsed for a module.
+
+- [#7](https://github.com/marko-js/arc-vite/pull/7) [`798c045`](https://github.com/marko-js/arc-vite/commit/798c045de06c2bec2c7706ca029d11371746ebd6) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Avoid checking for virtual adaptive modules when processing files known to be handled by Vite.
+
 ## 1.1.0
 
 ### Minor Changes

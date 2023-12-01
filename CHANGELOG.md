@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+### Patch Changes
+
+- [#9](https://github.com/marko-js/arc-vite/pull/9) [`74a55b6`](https://github.com/marko-js/arc-vite/commit/74a55b604a476952e83f6d9f1dea66fa774b4422) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Use inline script to load adaptive assets in correct order instead of appending to chunk file.
+
 ## 1.2.0
 
 ### Minor Changes

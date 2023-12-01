@@ -4,14 +4,10 @@ import { parseDocument, DomUtils } from "htmlparser2";
 
 const { isTag, removeElement, filter } = DomUtils;
 
-export function stripEntryScript(
-  basePath: string,
-  fileName: string,
-  html: string,
-) {
+export function stripEntryScript(entryScriptURL: string, html: string) {
   const dom = parseDocument(html);
   for (const script of filter(isModule, dom) as Element[]) {
-    if (stripBasePath(basePath, script.attribs.src) === fileName) {
+    if (script.attribs.src === entryScriptURL) {
       removeElement(script);
     }
   }
@@ -26,9 +22,4 @@ function isModule(node: Node): node is Element {
     node.attribs.type === "module" &&
     !!node.attribs.src
   );
-}
-
-function stripBasePath(basePath: string, path: string) {
-  if (path.startsWith(basePath)) return path.slice(basePath.length);
-  return path;
 }

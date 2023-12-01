@@ -49,6 +49,9 @@ export function pluginBuildWeb({
   let proxyModuleId = 0;
   let initModuleId = 0;
   let basePath = "/";
+  let resolveAssetURL: (fileName: string, from: string) => string = (
+    fileName: string,
+  ) => basePath + fileName;
   return [
     {
       name: "arc-vite:build-web",
@@ -59,6 +62,24 @@ export function pluginBuildWeb({
       },
       configResolved(config) {
         basePath = config.base;
+        const { renderBuiltUrl: originalRenderBuiltURL } = config.experimental;
+        if (originalRenderBuiltURL) {
+          resolveAssetURL = (fileName, from) => {
+            const url = originalRenderBuiltURL(fileName, {
+              ssr: false,
+              type: "asset",
+              hostId: from,
+              hostType: "html",
+            });
+            if (typeof url !== "string") {
+              throw new Error(
+                `renderBuiltURL must return a string for html assets`,
+              );
+            }
+
+            return url;
+          };
+        }
       },
       closeBundle() {
         proxyModuleId = initModuleId = 0;
@@ -383,23 +404,24 @@ export function pluginBuildWeb({
         return null;
       },
       transformIndexHtml(html, { chunk, bundle }) {
-        if (!bundle || !chunk?.facadeModuleId) return;
-        const adaptiveChunkMeta = metaForAdaptiveChunk.get(
-          chunk.facadeModuleId,
-        );
+        if (!bundle) return;
+        const moduleId = chunk?.facadeModuleId;
+        if (!moduleId) return;
+        const adaptiveChunkMeta = metaForAdaptiveChunk.get(moduleId);
 
         if (adaptiveChunkMeta) {
-          for (const fileName in bundle) {
-            const curChunk = bundle[fileName];
+          const { entryId } = adaptiveChunkMeta;
+          for (const curFile in bundle) {
+            const curChunk = bundle[curFile];
             if (
               curChunk.type === "chunk" &&
               curChunk.isEntry &&
-              curChunk.facadeModuleId === adaptiveChunkMeta.entryId
+              curChunk.facadeModuleId === entryId
             ) {
               return prepareArcEntryHTML(
-                basePath,
                 runtimeId,
                 html,
+                (fileName: string) => resolveAssetURL(fileName, entryId),
                 curChunk,
                 chunk,
               );
@@ -409,7 +431,10 @@ export function pluginBuildWeb({
           return;
         }
 
-        return stripEntryScript(basePath, chunk.fileName, html);
+        return stripEntryScript(
+          resolveAssetURL(chunk.fileName, moduleId),
+          html,
+        );
       },
     },
     {

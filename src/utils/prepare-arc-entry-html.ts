@@ -8,18 +8,20 @@ const parserOptions = { decodeEntities: false, encodeEntities: false };
 const emptyScriptReg = /^[\s;]+$/;
 
 export function prepareArcEntryHTML(
-  basePath: string,
   runtimeId: string,
   html: string,
+  renderAssetURL: (fileName: string) => string,
   originalChunk: Rollup.OutputChunk,
   adaptedChunk: Rollup.OutputChunk,
 ) {
   const dom = parseDocument(html, parserOptions);
   const originalChunkIsEmpty = emptyScriptReg.test(originalChunk.code);
   const adaptedChunkIsEmpty = emptyScriptReg.test(adaptedChunk.code);
+  const originalChunkURL = renderAssetURL(originalChunk.fileName);
+  const adaptedChunkURL = renderAssetURL(adaptedChunk.fileName);
 
   for (const script of filter(isModule, dom) as Element[]) {
-    if (stripBasePath(basePath, script.attribs.src) === adaptedChunk.fileName) {
+    if (script.attribs.src === adaptedChunkURL) {
       if (originalChunkIsEmpty && adaptedChunkIsEmpty) {
         removeElement(script);
       } else if (originalChunkIsEmpty) {
@@ -33,7 +35,7 @@ export function prepareArcEntryHTML(
           ),
         );
       } else if (adaptedChunkIsEmpty) {
-        script.attribs.src = basePath + originalChunk.fileName;
+        script.attribs.src = originalChunkURL;
       } else {
         delete script.attribs.src;
         prepend(
@@ -48,9 +50,9 @@ export function prepareArcEntryHTML(
         appendChild(
           script,
           new Text(
-            `import ${JSON.stringify(
-              basePath + adaptedChunk.fileName,
-            )}\nimport ${JSON.stringify(basePath + originalChunk.fileName)}`,
+            `import ${JSON.stringify(adaptedChunkURL)}\nimport ${JSON.stringify(
+              originalChunkURL,
+            )}`,
           ),
         );
       }
@@ -67,9 +69,4 @@ function isModule(node: Node): node is Element {
     node.attribs.type === "module" &&
     !!node.attribs.src
   );
-}
-
-function stripBasePath(basePath: string, path: string) {
-  if (path.startsWith(basePath)) return path.slice(basePath.length);
-  return path;
 }

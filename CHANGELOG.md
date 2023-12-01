@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+### Patch Changes
+
+- [#11](https://github.com/marko-js/arc-vite/pull/11) [`419b1df`](https://github.com/marko-js/arc-vite/commit/419b1df8cc1fd7972b5cb536fc0beb100a9e2e99) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Fix support for renderBuiltURL vite api
+
 ## 1.2.1
 
 ### Patch Changes

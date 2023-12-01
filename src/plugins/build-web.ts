@@ -15,8 +15,8 @@ import {
 } from "../utils/manifest";
 import { type Matches } from "../utils/matches";
 import { type InternalPluginOptions } from "../utils/options";
+import { prepareArcEntryHTML } from "../utils/prepare-arc-entry-html";
 import { stripEntryScript } from "../utils/strip-entry-script";
-import { toPosix } from "../utils/to-posix";
 import {
   decodeArcVirtualMatch,
   getVirtualMatches,
@@ -27,26 +27,25 @@ const arcPrefix = "\0arc-";
 const arcJsSuffix = ".mjs";
 const arcInitPrefix = `${arcPrefix}init:`;
 const arcProxyPrefix = `${arcPrefix}proxy:`;
-const emptyScriptReg = /^[\s;]+$/;
 const arcChunkFileNameReg = /(.+)\.arc(?:\.(.+))?\.html$/;
 export function pluginBuildWeb({
   runtimeId,
   flagSets,
   store,
 }: InternalPluginOptions): Plugin[] {
-  const globalIds = new Map<string, string>();
-  const adaptiveImporters = new Map<string, Map<string, string>>();
-  const adaptiveMatchesForId = new Map<string, Matches>();
-  const bindingsByAdaptiveId = new Map<string, Set<string> | true>();
-  const metaForAdaptiveChunk = new Map<
+  const apply: Plugin["apply"] = (config, { command }) =>
+    command === "build" && !config.build?.ssr;
+  let globalIds = new Map<string, string>();
+  let adaptiveImporters = new Map<string, Map<string, string>>();
+  let adaptiveMatchesForId = new Map<string, Matches>();
+  let bindingsByAdaptiveId = new Map<string, Set<string> | true>();
+  let metaForAdaptiveChunk = new Map<
     string,
     {
       entryId: string;
       adaptiveImports: Map<string, string>;
     }
   >();
-  const apply: Plugin["apply"] = (config, { command }) =>
-    command === "build" && !config.build?.ssr;
   let proxyModuleId = 0;
   let initModuleId = 0;
   let basePath = "/";
@@ -63,11 +62,11 @@ export function pluginBuildWeb({
       },
       closeBundle() {
         proxyModuleId = initModuleId = 0;
-        globalIds.clear();
-        adaptiveImporters.clear();
-        adaptiveMatchesForId.clear();
-        bindingsByAdaptiveId.clear();
-        metaForAdaptiveChunk.clear();
+        globalIds = new Map();
+        adaptiveImporters = new Map();
+        adaptiveMatchesForId = new Map();
+        bindingsByAdaptiveId = new Map();
+        metaForAdaptiveChunk = new Map();
       },
       async resolveId(source, importer, options) {
         if (importer) {
@@ -383,59 +382,34 @@ export function pluginBuildWeb({
 
         return null;
       },
-      transformIndexHtml(html, { chunk }) {
-        if (!chunk?.facadeModuleId) return;
-        if (arcChunkFileNameReg.test(chunk.facadeModuleId)) {
-          return [
-            {
-              injectTo: "head-prepend",
-              tag: "script",
-              children: `${runtimeId}={}`,
-            },
-          ];
+      transformIndexHtml(html, { chunk, bundle }) {
+        if (!bundle || !chunk?.facadeModuleId) return;
+        const adaptiveChunkMeta = metaForAdaptiveChunk.get(
+          chunk.facadeModuleId,
+        );
+
+        if (adaptiveChunkMeta) {
+          for (const fileName in bundle) {
+            const curChunk = bundle[fileName];
+            if (
+              curChunk.type === "chunk" &&
+              curChunk.isEntry &&
+              curChunk.facadeModuleId === adaptiveChunkMeta.entryId
+            ) {
+              return prepareArcEntryHTML(
+                basePath,
+                runtimeId,
+                html,
+                curChunk,
+                chunk,
+              );
+            }
+          }
+
+          return;
         }
 
         return stripEntryScript(basePath, chunk.fileName, html);
-      },
-      generateBundle(_, bundle) {
-        const facadeModuleIdToEntryName = new Map<string, string>();
-        for (const fileName in bundle) {
-          const chunk = bundle[fileName];
-          if (
-            chunk.type === "chunk" &&
-            chunk.isEntry &&
-            chunk.facadeModuleId &&
-            !arcChunkFileNameReg.test(chunk.facadeModuleId) &&
-            !emptyScriptReg.test(chunk.code)
-          ) {
-            facadeModuleIdToEntryName.set(chunk.facadeModuleId, chunk.fileName);
-          }
-        }
-
-        for (const fileName in bundle) {
-          const chunk = bundle[fileName];
-          if (
-            chunk.type === "chunk" &&
-            chunk.isEntry &&
-            chunk.facadeModuleId &&
-            arcChunkFileNameReg.test(chunk.facadeModuleId)
-          ) {
-            const adaptiveChunkMeta = metaForAdaptiveChunk.get(
-              chunk.facadeModuleId,
-            );
-            if (adaptiveChunkMeta) {
-              const originalEntryName = facadeModuleIdToEntryName.get(
-                adaptiveChunkMeta.entryId,
-              );
-              if (originalEntryName) {
-                chunk.imports.push(originalEntryName);
-                chunk.code += `;import ${JSON.stringify(
-                  toRelativeImport(chunk.fileName, originalEntryName),
-                )}`;
-              }
-            }
-          }
-        }
       },
     },
     {
@@ -585,12 +559,4 @@ function decodeArcInitId(id: string) {
       ? relativeAdaptedImport
       : path.join(adaptiveImport, "..", relativeAdaptedImport);
   return [adaptiveImport, adaptedImport];
-}
-
-function toRelativeImport(from: string, to: string) {
-  const relative = path.relative(path.dirname(toPosix(from)), toPosix(to));
-  if (relative[0] !== ".") {
-    return `./${relative}`;
-  }
-  return relative;
 }

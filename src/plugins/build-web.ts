@@ -470,7 +470,7 @@ export function pluginBuildWeb({
             matchCodeSep = ":";
           }
 
-          manifestCode += `:${JSON.stringify(defaultFlaggedAssets.manifest)}`;
+          manifestCode += `:${JSON.stringify(defaultFlaggedAssets.manifest)};`;
         }
 
         manifestCode += `}return {"head": ["<script>console.error('Unable to load adaptive arc files, unknown entry was provided when asking for assets.')</script>"]}};\n`;

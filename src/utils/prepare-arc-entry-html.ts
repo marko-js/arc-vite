@@ -3,9 +3,9 @@ import { type Node, Element, Text } from "domhandler";
 import { parseDocument, DomUtils, ElementType } from "htmlparser2";
 import type { Rollup } from "vite";
 
-const { isTag, filter, appendChild, prepend, removeElement } = DomUtils;
+const { isTag, filter, appendChild, prepend } = DomUtils;
 const parserOptions = { decodeEntities: false, encodeEntities: false };
-const emptyScriptReg = /^[\s;]+$/;
+const emptyScriptReg = /^(?:[\s;]+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*$/;
 
 export function prepareArcEntryHTML(
   runtimeId: string,
@@ -14,17 +14,29 @@ export function prepareArcEntryHTML(
   originalChunk: Rollup.OutputChunk,
   adaptedChunk: Rollup.OutputChunk,
 ) {
+  const originalChunkURL = renderAssetURL(originalChunk.fileName);
+
+  if (emptyScriptReg.test(adaptedChunk.code)) {
+    return [
+      {
+        tag: "script",
+        attrs: {
+          type: "module",
+          async: true,
+          crossorigin: true,
+          src: originalChunkURL,
+        },
+      },
+    ];
+  }
+
   const dom = parseDocument(html, parserOptions);
   const originalChunkIsEmpty = emptyScriptReg.test(originalChunk.code);
-  const adaptedChunkIsEmpty = emptyScriptReg.test(adaptedChunk.code);
-  const originalChunkURL = renderAssetURL(originalChunk.fileName);
   const adaptedChunkURL = renderAssetURL(adaptedChunk.fileName);
 
   for (const script of filter(isModule, dom) as Element[]) {
     if (script.attribs.src === adaptedChunkURL) {
-      if (originalChunkIsEmpty && adaptedChunkIsEmpty) {
-        removeElement(script);
-      } else if (originalChunkIsEmpty) {
+      if (originalChunkIsEmpty) {
         prepend(
           script,
           new Element(
@@ -34,8 +46,6 @@ export function prepareArcEntryHTML(
             ElementType.Script,
           ),
         );
-      } else if (adaptedChunkIsEmpty) {
-        script.attribs.src = originalChunkURL;
       } else {
         delete script.attribs.src;
         prepend(

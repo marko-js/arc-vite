@@ -1,13 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type * as estree from "estree";
-import type { Plugin } from "vite";
+import type { Plugin, Rollup } from "vite";
 import { getArcFS } from "../utils/arc-fs";
-import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
 import { type FlagSet, compareFlaggedObject, hasFlags } from "../utils/flags";
 import { indexToId } from "../utils/index-to-id";
-import { isCssFile } from "../utils/is-css-file";
+import { isGlobalCSSFile } from "../utils/file-types";
 import {
   type DocManifest,
   generatManifest,
@@ -57,9 +56,6 @@ export function pluginBuildWeb({
       name: "arc-vite:build-web",
       enforce: "pre",
       apply,
-      config(config) {
-        ensureArcPluginIsFirst(config.plugins!);
-      },
       configResolved(config) {
         basePath = config.base;
         const { renderBuiltUrl: originalRenderBuiltURL } = config.experimental;
@@ -117,10 +113,6 @@ export function pluginBuildWeb({
             if (matches) {
               const { id } = resolved;
 
-              if (!this.getModuleInfo(id)?.ast) {
-                await this.load(resolved);
-              }
-
               adaptiveMatchesForId.set(id, matches);
 
               const adaptiveImportsForImporter =
@@ -131,7 +123,7 @@ export function pluginBuildWeb({
                 adaptiveImporters.set(importer, new Map([[source, id]]));
               }
 
-              return { id: encodeArcProxyId(id) };
+              return { id: encodeArcProxyId(id), meta: { arcOriginalResolve: resolved } };
             }
           }
 
@@ -297,7 +289,8 @@ export function pluginBuildWeb({
         return null;
       },
 
-      async load(id) {
+      async load(rawId) {
+        let id = rawId;
         const adaptiveChunkMeta = metaForAdaptiveChunk.get(id);
 
         if (adaptiveChunkMeta) {
@@ -319,11 +312,16 @@ export function pluginBuildWeb({
         } else if (isArcProxyId(id)) {
           id = decodeArcProxyId(id);
 
-          if (isCssFile(id)) {
+          if (isGlobalCSSFile(id)) {
             return { code: "" };
           }
 
-          const info = this.getModuleInfo(id);
+          let info = this.getModuleInfo(id);
+          if (!info?.ast) {
+            const resolved = this.getModuleInfo(rawId)?.meta?.arcOriginalResolve as Rollup.ResolvedId | undefined;
+            if (resolved) info = await this.load(resolved);
+          }
+
           if (info) {
             let code = "";
             let syntheticNamedExports: boolean | string = false;
@@ -358,7 +356,7 @@ export function pluginBuildWeb({
         } else if (isArcInitId(id)) {
           const [adaptiveImport, adaptedImport] = decodeArcInitId(id);
           const bindings = bindingsByAdaptiveId.get(adaptiveImport);
-          if (!bindings || isCssFile(adaptiveImport)) {
+          if (!bindings || isGlobalCSSFile(adaptiveImport)) {
             return {
               code: `import ${JSON.stringify(adaptedImport)};\n`,
               moduleSideEffects: "no-treeshake",

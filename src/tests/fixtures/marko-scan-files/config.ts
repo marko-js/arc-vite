@@ -4,10 +4,10 @@ import arcVite from "../../..";
 export default () =>
   defineConfig({
     plugins: [
-      markoVite(),
       arcVite({
         flags: ["mobile"],
       }),
+      markoVite(),
     ],
     build: {
       modulePreload: false,

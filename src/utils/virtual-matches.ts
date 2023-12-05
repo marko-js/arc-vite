@@ -1,4 +1,3 @@
-import path from "path";
 import type { Rollup } from "vite";
 import { decodeFileName, encodeFileName } from "./filename-encoding";
 import { normalizeFlagSets, type FlagSet } from "./flags";
@@ -6,65 +5,57 @@ import { getMatches, type Match } from "./matches";
 
 const arcPrefix = "\0arc-";
 const arcVirtualMatchPrefix = `${arcPrefix}match:`;
-const isBuiltinModuleType =
-  /\.(?:[mc]?[tj]s|json|css|less|sass|scss|styl|stylus|pcss|postcss|sss)(\?|$)/;
+const scriptFileReg = /\.(?:[mc]?[tj]s|json)(\?|$)/
+const assetFileReg = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss|a?png|jpe?g|jfif|pipeg|pjp|gif|svg|ico|web[pm]|avif|mp4|ogg|mp3|wav|flac|aac|opus|woff2?|eot|[ot]tf|webmanifest|pdf|txt)(\?|$)/
 
-export async function getVirtualMatches(
-  ctx: Rollup.PluginContext,
+export function isAssetFile(id: string) {
+  return assetFileReg.test(id);
+}
+
+export function shouldCheckVirtualMatch(id: string) {
+  return !scriptFileReg.test(id) && !assetFileReg.test(id);
+}
+
+export function getVirtualMatches(
+  info: Rollup.ModuleInfo,
   flagSets: FlagSet[],
-  resolved: { id: string },
 ) {
-  const { id } = resolved;
-  if (path.isAbsolute(id)) {
-    const matches = getMatches(id, flagSets);
-    if (matches) return matches;
+  const { id, meta } = info;
+  if (typeof meta.arcSourceCode !== "string" || !Array.isArray(meta.arcScanIds)) {
+    return;
   }
 
-  if (isBuiltinModuleType.test(id)) return;
-
-  let info = ctx.getModuleInfo(id);
-  if (!info?.ast) info = await ctx.load(resolved);
-  const { meta } = info;
-  if (Array.isArray(meta.arcScanIds)) {
-    if (typeof meta.arcSourceCode !== "string") {
-      ctx.error(
-        "arc-vite: when providing 'arcScanIds' you must also provide the original source code as 'arcSourceCode'.",
-      );
-    }
-    const matchesFlagSets: FlagSet[] = [];
-    await Promise.all(
-      meta.arcScanIds.map(async (id) => {
-        const matches = await getVirtualMatches(ctx, flagSets, { id });
-        if (matches) {
-          for (const alternate of matches.alternates) {
-            matchesFlagSets.push(alternate.flags);
-          }
-        }
-      }),
-    );
-
-    let alternates: undefined | [Match, ...Match[]];
-    for (const flagSet of normalizeFlagSets(matchesFlagSets)) {
-      if (!flagSet.length) continue;
-
-      const alternate: Match = {
-        flags: flagSet,
-        value: encodeArcVirtualMatch(id, flagSet),
-      };
-
-      if (alternates) {
-        alternates.push(alternate);
-      } else {
-        alternates = [alternate];
+  const matchesFlagSets: FlagSet[] = [];
+  for (const scanId of meta.arcScanIds) {
+    const matches = getMatches(scanId, flagSets);
+    if (matches) {
+      for (const alternate of matches.alternates) {
+        matchesFlagSets.push(alternate.flags);
       }
     }
+  }
+
+  let alternates: undefined | [Match, ...Match[]];
+  for (const flagSet of normalizeFlagSets(matchesFlagSets)) {
+    if (!flagSet.length) continue;
+
+    const alternate: Match = {
+      flags: flagSet,
+      value: encodeArcVirtualMatch(id, flagSet),
+    };
 
     if (alternates) {
-      return {
-        default: id,
-        alternates,
-      };
+      alternates.push(alternate);
+    } else {
+      alternates = [alternate];
     }
+  }
+
+  if (alternates) {
+    return {
+      default: id,
+      alternates,
+    };
   }
 }
 

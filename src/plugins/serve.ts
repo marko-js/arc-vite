@@ -3,7 +3,6 @@ import { createRequire, syncBuiltinESMExports } from "module";
 import path from "path";
 import type { Plugin } from "vite";
 import { patchFS } from "../utils/arc-fs";
-import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 import { type FlagSet, hasFlags } from "../utils/flags";
 import { getMatches } from "../utils/matches";
 import { type InternalPluginOptions } from "../utils/options";
@@ -34,7 +33,6 @@ export function pluginServe({
 
       syncBuiltinESMExports();
       restoreFS = patchFS(flagSet, fs);
-      ensureArcPluginIsFirst(config.plugins!);
       config.cacheDir = path.resolve(
         `node_modules/.vite/arc/${flagSet.join(".")}`,
       );

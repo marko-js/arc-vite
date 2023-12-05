@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.3
+
+### Patch Changes
+
+- [#13](https://github.com/marko-js/arc-vite/pull/13) [`c82db74`](https://github.com/marko-js/arc-vite/commit/c82db74446af0b36ec64d193643ae0ab7fca25c4) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Reverts virtual adaptive module support for now since it was not properly working and dramatically increased the complexity of this module and caused a few regressions that were difficult to resolve.
+
 ## 1.2.2
 
 ### Patch Changes

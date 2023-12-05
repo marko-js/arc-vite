@@ -1,27 +1,25 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type * as estree from "estree";
-import type { Plugin } from "vite";
-import { getArcFS } from "../utils/arc-fs";
-import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
+import type { Plugin, Rollup } from "vite";
+import { isAssetFile, isGlobalCSSFile } from "../utils/file-types";
 import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
 import { type FlagSet, compareFlaggedObject, hasFlags } from "../utils/flags";
 import { indexToId } from "../utils/index-to-id";
-import { isCssFile } from "../utils/is-css-file";
 import {
   type DocManifest,
   generatManifest,
   generateHTML,
 } from "../utils/manifest";
-import { type Matches } from "../utils/matches";
+import { getMatches, type Matches } from "../utils/matches";
 import { type InternalPluginOptions } from "../utils/options";
 import { prepareArcEntryHTML } from "../utils/prepare-arc-entry-html";
 import { stripEntryScript } from "../utils/strip-entry-script";
-import {
-  decodeArcVirtualMatch,
-  getVirtualMatches,
-  isArcVirtualMatch,
-} from "../utils/virtual-matches";
+
+interface ProxyMeta {
+  resolved: Rollup.ResolvedId;
+  matches: Matches;
+}
 
 const arcPrefix = "\0arc-";
 const arcJsSuffix = ".mjs";
@@ -36,8 +34,8 @@ export function pluginBuildWeb({
   const apply: Plugin["apply"] = (config, { command }) =>
     command === "build" && !config.build?.ssr;
   let globalIds = new Map<string, string>();
+  let metaForProxy = new Map<string, ProxyMeta>();
   let adaptiveImporters = new Map<string, Map<string, string>>();
-  let adaptiveMatchesForId = new Map<string, Matches>();
   let bindingsByAdaptiveId = new Map<string, Set<string> | true>();
   let metaForAdaptiveChunk = new Map<
     string,
@@ -57,9 +55,6 @@ export function pluginBuildWeb({
       name: "arc-vite:build-web",
       enforce: "pre",
       apply,
-      config(config) {
-        ensureArcPluginIsFirst(config.plugins!);
-      },
       configResolved(config) {
         basePath = config.base;
         const { renderBuiltUrl: originalRenderBuiltURL } = config.experimental;
@@ -85,9 +80,9 @@ export function pluginBuildWeb({
         proxyModuleId = initModuleId = 0;
         globalIds = new Map();
         adaptiveImporters = new Map();
-        adaptiveMatchesForId = new Map();
         bindingsByAdaptiveId = new Map();
         metaForAdaptiveChunk = new Map();
+        metaForProxy = new Map();
       },
       async resolveId(source, importer, options) {
         if (importer) {
@@ -96,14 +91,6 @@ export function pluginBuildWeb({
           }
 
           if (isArcId(importer)) {
-            if (isArcVirtualMatch(importer)) {
-              return this.resolve(
-                source,
-                this.getModuleInfo(importer)?.meta.arcSourceId,
-                options,
-              );
-            }
-
             return source;
           }
 
@@ -113,16 +100,9 @@ export function pluginBuildWeb({
           });
 
           if (resolved && !resolved.external) {
-            const matches = await getVirtualMatches(this, flagSets, resolved);
+            const { id } = resolved;
+            const matches = getMatches(id, flagSets);
             if (matches) {
-              const { id } = resolved;
-
-              if (!this.getModuleInfo(id)?.ast) {
-                await this.load(resolved);
-              }
-
-              adaptiveMatchesForId.set(id, matches);
-
               const adaptiveImportsForImporter =
                 adaptiveImporters.get(importer);
               if (adaptiveImportsForImporter) {
@@ -131,7 +111,9 @@ export function pluginBuildWeb({
                 adaptiveImporters.set(importer, new Map([[source, id]]));
               }
 
-              return { id: encodeArcProxyId(id) };
+              const proxyId = nextProxyId();
+              metaForProxy.set(proxyId, { resolved, matches });
+              return proxyId;
             }
           }
 
@@ -156,7 +138,7 @@ export function pluginBuildWeb({
               seenImports.add(childId);
 
               if (isArcProxyId(childId)) {
-                adaptiveImports.push(decodeArcProxyId(childId));
+                adaptiveImports.push(childId);
               } else {
                 const info = await this.load({
                   id: childId,
@@ -196,32 +178,25 @@ export function pluginBuildWeb({
                   pendingAdaptiveImports = [];
                   await Promise.all(
                     pending.map(async (adaptiveImport) => {
-                      const adaptiveMatches =
-                        adaptiveMatchesForId.get(adaptiveImport);
-
-                      if (adaptiveMatches) {
-                        let adaptedImport: string;
-                        for (const {
-                          flags,
-                          value,
-                        } of adaptiveMatches.alternates) {
-                          if (hasFlags(flagSet, flags)) {
-                            adaptedImport = value;
-                            break;
-                          }
+                      const { matches } = metaForProxy.get(adaptiveImport)!;
+                      let adaptedImport: string;
+                      for (const { flags, value } of matches.alternates) {
+                        if (hasFlags(flagSet, flags)) {
+                          adaptedImport = value;
+                          break;
                         }
-
-                        adaptedImport ||= adaptiveMatches.default;
-                        resolvedAdaptiveImports.set(
-                          adaptiveImport,
-                          adaptedImport,
-                        );
-                        await scanImports(
-                          adaptedImport,
-                          importsForFlagSet,
-                          pendingAdaptiveImports,
-                        );
                       }
+
+                      adaptedImport ||= matches.default;
+                      resolvedAdaptiveImports.set(
+                        adaptiveImport,
+                        adaptedImport,
+                      );
+                      await scanImports(
+                        adaptedImport,
+                        importsForFlagSet,
+                        pendingAdaptiveImports,
+                      );
                     }),
                   );
                 }
@@ -317,48 +292,57 @@ export function pluginBuildWeb({
             moduleSideEffects: "no-treeshake",
           };
         } else if (isArcProxyId(id)) {
-          id = decodeArcProxyId(id);
+          const { resolved } = metaForProxy.get(id)!;
+          let code = "";
 
-          if (isCssFile(id)) {
+          if (isGlobalCSSFile(resolved.id)) {
             return { code: "" };
           }
 
-          const info = this.getModuleInfo(id);
-          if (info) {
-            let code = "";
-            let syntheticNamedExports: boolean | string = false;
+          let hasNamedExports = false;
+          let hasDefaultExport = false;
+          let syntheticNamedExports: boolean | string = false;
 
-            if (info.exports?.length) {
-              const hasNamedExports =
-                info.exports.length >= (info.hasDefaultExport ? 2 : 1);
-
-              if (hasNamedExports || info.hasDefaultExport) {
-                const arcId = getArcId(id);
-                if (hasNamedExports) {
-                  code += `export const {${arcId}} = ${runtimeId};\n`;
-                  syntheticNamedExports = arcId;
-
-                  if (info.hasDefaultExport) {
-                    code += `export default ${arcId}.default;\n`;
-                  }
-                } else {
-                  code += `export default ${runtimeId}.${arcId}.default;\n`;
-                }
-              }
-            } else {
-              code = "export {};\n";
+          if (isAssetFile(resolved.id)) {
+            hasDefaultExport = true;
+          } else {
+            let info = this.getModuleInfo(resolved.id);
+            if (!info?.ast) {
+              info = await this.load(resolved);
             }
 
-            return {
-              code,
-              syntheticNamedExports,
-              moduleSideEffects: false,
-            };
+            if (info.exports) {
+              hasDefaultExport = info.hasDefaultExport === true;
+              hasNamedExports =
+                info.exports.length >= (hasDefaultExport ? 2 : 1);
+            }
           }
+
+          if (hasNamedExports || hasDefaultExport) {
+            const arcId = getArcId(id);
+            if (hasNamedExports) {
+              code += `export const {${arcId}} = ${runtimeId};\n`;
+              syntheticNamedExports = arcId;
+
+              if (hasDefaultExport) {
+                code += `export default ${arcId}.default;\n`;
+              }
+            } else {
+              code += `export default ${runtimeId}.${arcId}.default;\n`;
+            }
+          } else {
+            code = "export {};\n";
+          }
+
+          return {
+            code,
+            syntheticNamedExports,
+            moduleSideEffects: false,
+          };
         } else if (isArcInitId(id)) {
           const [adaptiveImport, adaptedImport] = decodeArcInitId(id);
           const bindings = bindingsByAdaptiveId.get(adaptiveImport);
-          if (!bindings || isCssFile(adaptiveImport)) {
+          if (!bindings || isGlobalCSSFile(adaptiveImport)) {
             return {
               code: `import ${JSON.stringify(adaptedImport)};\n`,
               moduleSideEffects: "no-treeshake",
@@ -381,23 +365,6 @@ export function pluginBuildWeb({
                   ).join(",")}}`
             };\n`,
             moduleSideEffects: "no-treeshake",
-          };
-        } else if (isArcVirtualMatch(id)) {
-          const [arcSourceId, arcFlagSet] = decodeArcVirtualMatch(id);
-          const { meta, moduleSideEffects, syntheticNamedExports } =
-            this.getModuleInfo(arcSourceId)!;
-          const code = meta.arcSourceCode as string;
-          const arcFS = getArcFS(arcFlagSet);
-          return {
-            code,
-            moduleSideEffects,
-            syntheticNamedExports,
-            meta: {
-              ...meta,
-              arcSourceId,
-              arcFlagSet,
-              arcFS,
-            },
           };
         }
 
@@ -515,10 +482,8 @@ export function pluginBuildWeb({
     },
   ];
 
-  function encodeArcProxyId(id: string) {
-    return `${arcProxyPrefix + (proxyModuleId++).toString(36)}:${
-      encodeFileName(id) + arcJsSuffix
-    }`;
+  function nextProxyId() {
+    return arcProxyPrefix + (proxyModuleId++).toString(36) + arcJsSuffix;
   }
 
   function encodeArcInitId(adaptiveImport: string, adaptedImport: string) {
@@ -554,15 +519,6 @@ function isArcProxyId(id: string) {
 
 function isArcInitId(id: string) {
   return id.startsWith(arcInitPrefix);
-}
-
-function decodeArcProxyId(id: string) {
-  return decodeFileName(
-    id.slice(
-      id.indexOf(":", arcProxyPrefix.length + 1) + 1,
-      -arcJsSuffix.length,
-    ),
-  );
 }
 
 function decodeArcInitId(id: string) {

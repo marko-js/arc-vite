@@ -1,9 +1,6 @@
-import fs from "fs";
-import { createRequire, syncBuiltinESMExports } from "module";
+import { createRequire } from "module";
 import path from "path";
 import type { Plugin } from "vite";
-import { patchFS } from "../utils/arc-fs";
-import { ensureArcPluginIsFirst } from "../utils/ensure-arc-plugin-is-first";
 import { type FlagSet, hasFlags } from "../utils/flags";
 import { getMatches } from "../utils/matches";
 import { type InternalPluginOptions } from "../utils/options";
@@ -15,7 +12,6 @@ export function pluginServe({
   forceFlagSet,
 }: InternalPluginOptions): Plugin {
   const flagSet = forceFlagSet?.length ? forceFlagSet : undefined;
-  let restoreFS: ReturnType<typeof patchFS> | undefined;
   return {
     name: "arc-vite:serve",
     enforce: "pre",
@@ -32,9 +28,6 @@ export function pluginServe({
 
       if (!flagSet) return;
 
-      syncBuiltinESMExports();
-      restoreFS = patchFS(flagSet, fs);
-      ensureArcPluginIsFirst(config.plugins!);
       config.cacheDir = path.resolve(
         `node_modules/.vite/arc/${flagSet.join(".")}`,
       );
@@ -54,11 +47,7 @@ export function pluginServe({
             },
           );
           build.onLoad({ filter: /./ }, (args) => {
-            const adaptedImport = getAdaptedMatch(
-              args.path,
-              flagSets,
-              flagSet!,
-            );
+            const adaptedImport = getAdaptedMatch(args.path, flagSets, flagSet);
             if (adaptedImport) {
               const proxiedImportCode = JSON.stringify(
                 arcProxyPrefix + adaptedImport,
@@ -79,23 +68,11 @@ export function pluginServe({
           skipSelf: true,
         });
         if (resolved) {
-          const adaptedImport = getAdaptedMatch(resolved.id, flagSets, flagSet);
-          if (adaptedImport) {
-            return { id: adaptedImport };
-          }
+          return getAdaptedMatch(resolved.id, flagSets, flagSet) || resolved;
         }
-
-        return resolved;
       }
 
       return null;
-    },
-    buildEnd() {
-      if (restoreFS) {
-        restoreFS();
-        syncBuiltinESMExports();
-        restoreFS = undefined;
-      }
     },
   };
 }

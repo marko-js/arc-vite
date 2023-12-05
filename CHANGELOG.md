@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.4
+
+### Patch Changes
+
+- [#15](https://github.com/marko-js/arc-vite/pull/15) [`980ebbc`](https://github.com/marko-js/arc-vite/commit/980ebbcae63e98b6daff9f72a131e9d6352a8eb2) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Fix syntax error in generated code when multiple arc conditions used.
+
 ## 1.2.3
 
 ### Patch Changes

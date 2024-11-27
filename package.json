@@ -75,6 +75,6 @@
   },
   "peerDependencies": {
     "arc-server": "^3.0.2",
-    "vite": "4 - 5"
+    "vite": "4 - 6"
   }
 }

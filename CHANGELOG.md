@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.5
+
+### Patch Changes
+
+- [#18](https://github.com/marko-js/arc-vite/pull/18) [`2b2c502`](https://github.com/marko-js/arc-vite/commit/2b2c50291ceb5cbe2afaf3e006e3cf4a6b35eec8) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Bump Vite peer dependency.
+
 ## 1.2.4
 
 ### Patch Changes

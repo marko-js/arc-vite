@@ -1,18 +1,19 @@
+import type * as estree from "estree";
 import { promises as fs } from "fs";
 import path from "path";
-import type * as estree from "estree";
 import type { Plugin, Rollup } from "vite";
+
 import { isAssetFile, isGlobalCSSFile } from "../utils/file-types";
 import { decodeFileName, encodeFileName } from "../utils/filename-encoding";
-import { type FlagSet, compareFlaggedObject, hasFlags } from "../utils/flags";
+import { compareFlaggedObject, type FlagSet, hasFlags } from "../utils/flags";
 import { indexToId } from "../utils/index-to-id";
 import {
   type DocManifest,
-  generatManifest,
   generateHTML,
+  generatManifest,
 } from "../utils/manifest";
 import { getMatches, type Matches } from "../utils/matches";
-import { type InternalPluginOptions } from "../utils/options";
+import type { InternalPluginOptions } from "../utils/options";
 import { prepareArcEntryHTML } from "../utils/prepare-arc-entry-html";
 import { stripEntryScript } from "../utils/strip-entry-script";
 
@@ -177,8 +178,8 @@ export function pluginBuildWeb({
                   const pending = pendingAdaptiveImports;
                   pendingAdaptiveImports = [];
                   await Promise.all(
-                    pending.map(async (adaptiveImport) => {
-                      const { matches } = metaForProxy.get(adaptiveImport)!;
+                    pending.map(async (id) => {
+                      const { matches, resolved } = metaForProxy.get(id)!;
                       let adaptedImport: string;
                       for (const { flags, value } of matches.alternates) {
                         if (hasFlags(flagSet, flags)) {
@@ -188,10 +189,7 @@ export function pluginBuildWeb({
                       }
 
                       adaptedImport ||= matches.default;
-                      resolvedAdaptiveImports.set(
-                        adaptiveImport,
-                        adaptedImport,
-                      );
+                      resolvedAdaptiveImports.set(resolved.id, adaptedImport);
                       await scanImports(
                         adaptedImport,
                         importsForFlagSet,
@@ -244,14 +242,19 @@ export function pluginBuildWeb({
                           bindingsByAdaptiveId.set(id, bindings);
                         }
                         break;
-                      case "ImportSpecifier":
+                      case "ImportSpecifier": {
+                        const name =
+                          specifier.imported.type === "Identifier"
+                            ? specifier.imported.name
+                            : (specifier.imported.value as string);
                         if (bindings) {
-                          bindings.add(specifier.imported.name);
+                          bindings.add(name);
                         } else {
-                          bindings = new Set([specifier.imported.name]);
+                          bindings = new Set([name]);
                           bindingsByAdaptiveId.set(id, bindings);
                         }
                         break;
+                      }
                     }
                   }
                 }
@@ -491,7 +494,7 @@ export function pluginBuildWeb({
       (adaptiveImport === adaptedImport
         ? encodeFileName(adaptiveImport)
         : `${encodeFileName(adaptiveImport)},${encodeFileName(
-            adaptedImport[0] === "\0"
+            adaptedImport[0] === "\0" || adaptiveImport[0] === "\0"
               ? adaptedImport
               : path.relative(path.dirname(adaptiveImport), adaptedImport),
           )}`) + arcJsSuffix
@@ -536,7 +539,7 @@ function decodeArcInitId(id: string) {
     id.slice(sepStart + 1, -arcJsSuffix.length),
   );
   const adaptedImport =
-    relativeAdaptedImport[0] === "\0"
+    relativeAdaptedImport[0] === "\0" || adaptiveImport[0] === "\0"
       ? relativeAdaptedImport
       : path.join(adaptiveImport, "..", relativeAdaptedImport);
   return [adaptiveImport, adaptedImport];

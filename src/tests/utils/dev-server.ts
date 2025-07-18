@@ -1,6 +1,8 @@
 import events from "node:events";
 import type { IncomingMessage } from "node:http";
+
 import * as vite from "vite";
+
 import { getPort } from "./get-port";
 
 export async function createDevServer(fixtureDir: string) {

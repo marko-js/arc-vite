@@ -1,11 +1,10 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type * as _arcServer from "arc-server";
-
 import type { Plugin } from "vite";
+
 import { pluginBuildSSR } from "./plugins/build-ssr";
 import { pluginBuildWeb } from "./plugins/build-web";
 import { pluginServe } from "./plugins/serve";
-import { type Options, getInternalPluginOptions } from "./utils/options";
+import { getInternalPluginOptions, type Options } from "./utils/options";
 
 export { createFlagSets, hasFlags } from "./utils/flags";
 

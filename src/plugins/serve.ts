@@ -1,9 +1,10 @@
 import { createRequire } from "module";
 import path from "path";
 import type { Plugin } from "vite";
+
 import { type FlagSet, hasFlags } from "../utils/flags";
 import { getMatches } from "../utils/matches";
-import { type InternalPluginOptions } from "../utils/options";
+import type { InternalPluginOptions } from "../utils/options";
 
 // TODO: support forced flagset for build plugins
 

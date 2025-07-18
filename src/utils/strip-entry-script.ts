@@ -1,6 +1,6 @@
 import toHTML from "dom-serializer";
-import type { Node, Element } from "domhandler";
-import { parseDocument, DomUtils } from "htmlparser2";
+import type { Element, Node } from "domhandler";
+import { DomUtils, parseDocument } from "htmlparser2";
 
 const { isTag, removeElement, filter } = DomUtils;
 

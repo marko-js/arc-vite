@@ -1,6 +1,6 @@
 import toHTML from "dom-serializer";
-import { type Node, Element, Text } from "domhandler";
-import { parseDocument, DomUtils, ElementType } from "htmlparser2";
+import { Element, type Node, Text } from "domhandler";
+import { DomUtils, ElementType, parseDocument } from "htmlparser2";
 import type { Rollup } from "vite";
 
 const { isTag, filter, appendChild, prepend } = DomUtils;

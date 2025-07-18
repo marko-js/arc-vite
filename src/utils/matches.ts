@@ -1,9 +1,10 @@
+import Resolver from "arc-resolver";
 import fs from "fs";
 import path from "path";
-import Resolver from "arc-resolver";
+
 import {
-  type FlagSet,
   compareFlaggedObject,
+  type FlagSet,
   hasFlagSet,
   normalizeFlagSet,
 } from "./flags";

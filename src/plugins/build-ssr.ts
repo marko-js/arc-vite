@@ -1,9 +1,10 @@
 import path from "path";
 import type { Plugin, Rollup } from "vite";
+
 import { isAssetFile, isGlobalCSSFile } from "../utils/file-types";
 import { indexToId } from "../utils/index-to-id";
 import { clearCache, getMatches, type Matches } from "../utils/matches";
-import { type InternalPluginOptions } from "../utils/options";
+import type { InternalPluginOptions } from "../utils/options";
 import { toPosix } from "../utils/to-posix";
 interface ProxyMeta {
   resolved: Rollup.ResolvedId;
@@ -82,18 +83,17 @@ export function pluginBuildSSR({
     async load(id) {
       if (id === virtualArcServerModuleId) {
         return {
-          code: `import * as arc from "arc-server";\nexport * from "arc-server";
+          code: `import arc from "arc-server";
 globalThis.__ARC_FLAGS__ = arc.getFlags;
 ${
   forceFlagSet
     ? `const forcedFlags = {${forceFlagSet.map(
         (name) => `${JSON.stringify(name)}:true`,
       )}};
-export function setFlags() { return arc.setFlags(forcedFlags); }
-export function withFlags(_, fn) { return arc.withFlags(forcedFlags, fn); }`
-    : ""
+export default { getAssets, getFlags: arc.getFlags, setFlags: () => arc.setFlags(forcedFlags), withFlags: (_, fn) => arc.withFlags(forcedFlags, fn) };`
+    : "export default { getAssets, getFlags: arc.getFlags, setFlags: arc.setFlags, withFlags: arc.withFlags };"
 }
-export function getAssets(entry, { base = import.meta.env.BASE_URL, injectAttrs = "" } = {}) {
+function getAssets(entry, { base = import.meta.env.BASE_URL, injectAttrs = "" } = {}) {
   const manifest = __ARC_ASSETS__(entry);
   return {
     "head-prepend": partsToString(manifest["head-prepend"], base, injectAttrs),
@@ -111,6 +111,7 @@ function partsToString(parts, base, injectAttrs) {
   return html;
 }\n`,
           moduleSideEffects: true,
+          syntheticNamedExports: true,
         };
       }
 

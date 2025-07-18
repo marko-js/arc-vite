@@ -1,6 +1,6 @@
 import {
-  type FlagSet,
   createFlagSets,
+  type FlagSet,
   normalizeFlagSet,
   normalizeFlagSets,
 } from "./flags";

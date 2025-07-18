@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.6
+
+### Patch Changes
+
+- [#21](https://github.com/marko-js/arc-vite/pull/21) [`272a3d7`](https://github.com/marko-js/arc-vite/commit/272a3d7fb1e5b27cfb1fa380f1ea565e2685f856) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Bump vite peer dependency and support vite 7.
+
 ## 1.2.5
 
 ### Patch Changes

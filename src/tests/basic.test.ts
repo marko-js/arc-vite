@@ -1,8 +1,10 @@
 import path from "node:path";
 import * as t from "node:test";
 import url from "node:url";
+
 import { expect } from "@playwright/test";
-import { type Page } from "playwright";
+import type { Page } from "playwright";
+
 import { createDevServer } from "./utils/dev-server";
 import { getPage } from "./utils/get-page";
 import { createProdServer } from "./utils/prod-server";

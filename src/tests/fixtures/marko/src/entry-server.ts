@@ -1,5 +1,6 @@
-import type { IncomingMessage } from "http";
 import { setFlags } from "arc-server";
+import type { IncomingMessage } from "http";
+
 import template from "./index.marko";
 
 export function render(req: IncomingMessage) {

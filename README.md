@@ -142,12 +142,12 @@ https.createServer(..., (req, res) => {
 
 If you are using [Marko](http://markojs.com) then the following is **not necessary** since this plugin will communicate with the Marko compiler in order to automatically inline the appropriate assets.
 
-For other types of setups this plugin exposes another top level api on `arc-server` called `getAssets`. This method will return an object with html to inject into your application given the _currently set_ arc flags.
+For other types of setups, this plugin exposes another top level API on `arc-server` called `getAssets`. This method will return an object with HTML to inject into your application given the _currently set_ arc flags.
 
 ```javascript
-import { getAssets } from "arc-server";
+import arc from "arc-server";
 export function handleRequest(req, res) {
-  const assets = getAssets("index"); // get all assets for the `index` (default) entry into vite.
+  const assets = arc.getAssets("index"); // get all assets for the `index` (default) entry into vite.
   res.end(`
 <!DOCTYPE html>
 <html lang="en">
@@ -168,4 +168,4 @@ export function handleRequest(req, res) {
 
 # Code of Conduct
 
-This project adheres to the [eBay Code of Conduct](./.github/CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+This project adheres to the [eBay Code of Conduct](./.github/CODE_OF_CONDUCT.md). By participating in this project, you agree to abide by its terms.

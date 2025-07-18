@@ -1,8 +1,9 @@
+import arc from "arc-server";
 import { promises as fs } from "fs";
 import type { IncomingMessage } from "http";
 import path from "path";
 import url from "url";
-import { getAssets, withFlags } from "arc-server";
+
 import renderApp from "./entry-web";
 
 const dirname = path.join(url.fileURLToPath(import.meta.url), "..");
@@ -12,8 +13,8 @@ export function render(req: IncomingMessage) {
   const url = new URL(req.url!, `http://${req.headers.host}`);
   if (url.pathname !== "/") return;
 
-  return withFlags({ mobile: url.searchParams.has("mobile") }, () => {
-    const assets = getAssets("index");
+  return arc.withFlags({ mobile: url.searchParams.has("mobile") }, () => {
+    const assets = arc.getAssets("index");
     return html
       .replace("<!-- app -->", renderApp())
       .replace("<head>", `<head>${assets["head-prepend"] || ""}`)

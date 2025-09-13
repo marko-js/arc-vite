@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.7
+
+### Patch Changes
+
+- [#23](https://github.com/marko-js/arc-vite/pull/23) [`904150d`](https://github.com/marko-js/arc-vite/commit/904150da42baee2f0e96de53ac4416a48f8d1bf9) Thanks [@DylanPiercey](https://github.com/DylanPiercey)! - Use correct id for resolved nested arc proxies for browser production build.
+
 ## 1.2.6
 
 ### Patch Changes

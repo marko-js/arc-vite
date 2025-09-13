@@ -322,7 +322,7 @@ export function pluginBuildWeb({
           }
 
           if (hasNamedExports || hasDefaultExport) {
-            const arcId = getArcId(id);
+            const arcId = getArcId(resolved.id);
             if (hasNamedExports) {
               code += `export const {${arcId}} = ${runtimeId};\n`;
               syntheticNamedExports = arcId;
